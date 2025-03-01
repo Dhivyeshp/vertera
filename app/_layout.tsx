@@ -36,7 +36,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (appReady) {
       // Navigate to the onboarding screen after the app is ready
-      router.replace('/initialOnboarding');
+     // router.replace('/initialOnboarding');
     }
   }, [appReady]);
 

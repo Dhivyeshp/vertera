@@ -21,7 +21,7 @@
       "typedRoutes": true
     },
     "splash": {
-      "image": "../assets/images/doordash.png",
+      "image": "./assets/images/doordash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     }

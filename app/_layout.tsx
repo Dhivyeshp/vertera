@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Image } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import { useRouter } from 'expo-router';
 
 // Prevent auto-hiding the splash screen
 SplashScreen.preventAutoHideAsync();
@@ -18,43 +19,31 @@ export default function RootLayout() {
 
   const [appReady, setAppReady] = useState(false);
   const fadeAnim = new Animated.Value(1);
-  const spinAnim = new Animated.Value(0);
+  const router = useRouter();
 
   useEffect(() => {
     if (fontsLoaded) {
-      // Start spinning animation
-      Animated.loop(
-        Animated.timing(spinAnim, {
-          toValue: 1,
-          duration: 800, // Faster rotation
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
+      // Hide the splash screen after fonts are loaded
+      SplashScreen.hideAsync();
 
-      setTimeout(async () => {
-        await SplashScreen.hideAsync();
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 500, // Smooth fade-out
-          useNativeDriver: true,
-        }).start(() => setAppReady(true));
-      }, 1500); // Faster transition (1.5 seconds)
+      // Simulate a delay for the splash screen (e.g., 2 seconds)
+      setTimeout(() => {
+        setAppReady(true);
+      }, 2000);
     }
   }, [fontsLoaded]);
 
-  const spin = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  useEffect(() => {
+    if (appReady) {
+      // Navigate to the onboarding screen after the app is ready
+      router.replace('/initialOnboarding');
+    }
+  }, [appReady]);
 
   if (!appReady) {
     return (
       <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
-        <Text style={styles.splashText}>Welcome to Vertera</Text>
-        <Animated.View style={{ transform: [{ rotate: spin }] }}>
-          <Text style={styles.loadingIcon}>🔄</Text>
-        </Animated.View>
+        <Image source={require('../assets/images/doordash.png')} style={styles.logo} />
       </Animated.View>
     );
   }
@@ -62,8 +51,14 @@ export default function RootLayout() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
+        {/* Define your routes here */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+        <Stack.Screen name="login" options={{ title: 'Log In' }} />
+        <Stack.Screen name="sign-up" options={{ title: 'Sign Up' }} />
+        <Stack.Screen name="initialOnboarding" options={{ title: 'Onboarding' }} />
+        <Stack.Screen name="index" options={{ title: 'index' }} />
+
       </Stack>
       <StatusBar style="auto" />
     </>
@@ -73,17 +68,13 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: '#5271FF',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  splashText: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 24,
-    color: '#FFFFFF',
-    marginBottom: 20,
-  },
-  loadingIcon: {
-    fontSize: 40,
+  logo: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
   },
 });

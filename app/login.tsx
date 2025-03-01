@@ -1,335 +1,240 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
-import { Send, Bot, User } from 'lucide-react-native';
-import axios from 'axios';
+import React, { useState } from "react";
+import { View, TextInput, TouchableOpacity, Text, Alert, StyleSheet, ActivityIndicator } from "react-native";
+import { signIn } from "./services/auth";
+import { User } from "firebase/auth";
+import { useRouter } from "expo-router"; // Import useRouter from expo-router
 
-export default function ChatScreen() {
-  const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState([
-    {
-      id: 1,
-      sender: 'ai',
-      text: "Hello! I'm your Vertera AI career assistant powered by Gemini. How can I help with your career transition today?",
-      timestamp: new Date(Date.now() - 60000),
-    },
-  ]);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const scrollViewRef = useRef(null);
+interface LoginScreenProps {
+  onLoginSuccess: (user: User) => void;
+}
 
-  const handleSend = async () => {
-    if (message.trim() === '') return;
 
-    // Add user message
-    const userMessage = {
-      id: chatHistory.length + 1,
-      sender: 'user',
-      text: message,
-      timestamp: new Date(),
-    };
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  const router = useRouter(); // Initialize the router
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    setChatHistory((prev) => [...prev, userMessage]);
-    setMessage('');
 
+  const validateInputs = () => {
+    if (!email) {
+      Alert.alert("Error", "Please enter your email.");
+      return false;
+    }
+    if (!password) {
+      Alert.alert("Error", "Please enter your password.");
+      return false;
+    }
+    return true;
+  };
+
+
+  const handleSignIn = async () => {
+    if (!validateInputs()) return;
+
+
+    setLoading(true);
     try {
-      setIsLoading(true);
-
-      // Call Gemini API
-      const response = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
-        {
-          contents: [{ parts: [{ text: message }] }],
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer AIzaSyBVj55IqkPp9Z_w_cBFsJOYZv5Qn9tOSEM`, // Replace with your Gemini API key
-          },
-        }
-      );
-
-      // Extract Gemini response
-      const geminiResponse = response.data.candidates[0].content.parts[0].text;
-
-      // Add AI message
-      const aiMessage = {
-        id: chatHistory.length + 2,
-        sender: 'ai',
-        text: geminiResponse,
-        timestamp: new Date(),
-      };
-
-      setChatHistory((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error calling Gemini API:', error);
-
-      // Add error message
-      const errorMessage = {
-        id: chatHistory.length + 2,
-        sender: 'ai',
-        text: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date(),
-      };
-
-      setChatHistory((prev) => [...prev, errorMessage]);
+      const loggedInUser = await signIn(email, password);
+      onLoginSuccess(loggedInUser);
+      Alert.alert("Success", "Logged in successfully!");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "An error occurred during sign-in.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const handleSocialAuth = (provider: string) => {
+    Alert.alert("Info", `${provider} login not implemented yet.`);
   };
 
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-    >
-      {/* Header */}
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>AI Career Assistant</Text>
-        <Text style={styles.headerSubtitle}>Ask anything about your career transition</Text>
-      </View>
-
-      {/* Chat History */}
-      <ScrollView
-        style={styles.chatContainer}
-        ref={scrollViewRef}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-      >
-        {chatHistory.map((chat) => (
-          <View
-            key={chat.id}
-            style={[
-              styles.messageBubble,
-              chat.sender === 'user' ? styles.userBubble : styles.aiBubble,
-            ]}
-          >
-            <View style={styles.messageHeader}>
-              <View style={styles.senderContainer}>
-                {chat.sender === 'ai' ? (
-                  <Bot size={16} color="#5271FF" />
-                ) : (
-                  <User size={16} color="#FFFFFF" />
-                )}
-                <Text
-                  style={[
-                    styles.senderName,
-                    chat.sender === 'ai' ? styles.aiSenderName : styles.userSenderName,
-                  ]}
-                >
-                  {chat.sender === 'ai' ? 'Vertera AI' : 'You'}
-                </Text>
-              </View>
-              <Text style={styles.timestamp}>{formatTime(chat.timestamp)}</Text>
-            </View>
-            <Text
-              style={[
-                styles.messageText,
-                chat.sender === 'user' ? styles.userMessageText : styles.aiMessageText,
-              ]}
-            >
-              {chat.text}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
-
-      {/* Input Area */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type your message..."
-          value={message}
-          onChangeText={setMessage}
-          multiline
-          placeholderTextColor="#8E8E93"
-        />
+        {/* Back button to navigate to onboarding */}
         <TouchableOpacity
-          style={[styles.sendButton, message.trim() === '' ? styles.sendButtonDisabled : {}]}
-          onPress={handleSend}
-          disabled={message.trim() === ''}
+          style={styles.backButton}
+          onPress={() => router.push("/initialOnboarding")} // Navigate to onboarding
         >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Send size={20} color="#FFFFFF" />
-          )}
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Log in</Text>
+      </View>
+     
+      <Text style={styles.subtitle}>Log in with one of the following options.</Text>
+
+
+      <View style={styles.socialButtonsContainer}>
+        <TouchableOpacity
+          style={styles.socialButton}
+          onPress={() => handleSocialAuth("Google")}
+        >
+          <Text style={styles.socialButtonText}>G</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.socialButton}
+          onPress={() => handleSocialAuth("Apple")}
+        >
+          <Text style={styles.socialButtonText}>⌘</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Suggested Questions */}
-      <View style={styles.suggestionsContainer}>
-        <Text style={styles.suggestionsTitle}>Suggested Questions</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <SuggestionChip
-            text="What skills do I need for product management?"
-            onPress={() => setMessage("What skills do I need for product management?")}
-          />
-          <SuggestionChip
-            text="How long will the transition take?"
-            onPress={() => setMessage("How long will the transition take?")}
-          />
-          <SuggestionChip
-            text="Recommend courses for me"
-            onPress={() => setMessage("Can you recommend some product management courses?")}
-          />
-          <SuggestionChip
-            text="How to build a portfolio?"
-            onPress={() => setMessage("How can I build a product management portfolio?")}
-          />
-        </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
-  );
-}
 
-function SuggestionChip({ text, onPress }) {
-  return (
-    <TouchableOpacity style={styles.suggestionChip} onPress={onPress}>
-      <Text style={styles.suggestionText}>{text}</Text>
-    </TouchableOpacity>
+      <Text style={styles.inputLabel}>Email</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="hey@olivercederborg.com"
+        placeholderTextColor="#666"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+
+
+      <Text style={styles.inputLabel}>Password</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Enter your password"
+        placeholderTextColor="#666"
+        value={password}
+        secureTextEntry
+        onChangeText={setPassword}
+      />
+
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#D946EF" />
+      ) : (
+        <>
+          <TouchableOpacity
+            style={styles.mainButton}
+            onPress={handleSignIn}
+            disabled={loading}
+          >
+            <Text style={styles.mainButtonText}>Log in</Text>
+          </TouchableOpacity>
+         
+          <View style={styles.switchContainer}>
+            <Text style={styles.switchText}>
+              Don't have an account?
+            </Text>
+            {/* Sign up button to navigate to sign-up page */}
+            <TouchableOpacity onPress={() => router.push("/SignUp")}>
+              <Text style={styles.switchButtonText}>
+                Sign up
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+    </View>
   );
-}
+};
+
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    padding: 25,
+    paddingTop: 100,
+    backgroundColor: "#111111",
   },
   header: {
-    paddingTop: Platform.OS === 'web' ? 40 : 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
   },
-  headerTitle: {
-    fontFamily: 'Poppins-Bold',
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#111827",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  backButtonText: {
+    color: "#FFF",
+    fontSize: 20,
+  },
+  title: {
     fontSize: 24,
-    color: '#333333',
-    marginBottom: 4,
+    fontWeight: "bold",
+    color: "#FFFFFF",
   },
-  headerSubtitle: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 16,
-    color: '#666666',
-  },
-  chatContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  messageBubble: {
-    maxWidth: '80%',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-  },
-  userBubble: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#5271FF',
-  },
-  aiBubble: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  messageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  senderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  senderName: {
-    fontFamily: 'Poppins-Medium',
+  subtitle: {
     fontSize: 14,
-    marginLeft: 4,
+    color: "#9CA3AF",
+    marginBottom: 20,
   },
-  userSenderName: {
-    color: '#FFFFFF',
+  socialButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 25,
   },
-  aiSenderName: {
-    color: '#5271FF',
+  socialButton: {
+    width: "48%",
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: "#111827",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  timestamp: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: '#8E8E93',
-    marginLeft: 8,
+  socialButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
   },
-  messageText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  userMessageText: {
-    color: '#FFFFFF',
-  },
-  aiMessageText: {
-    color: '#333333',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginBottom: 8,
   },
   input: {
-    flex: 1,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
-    fontFamily: 'Poppins-Regular',
+    width: "100%",
+    padding: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#374151",
+    borderRadius: 10,
+    backgroundColor: "#111827",
+    color: "#FFFFFF",
     fontSize: 16,
-    maxHeight: 100,
   },
-  sendButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#5271FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  mainButton: {
+    width: "100%",
+    padding: 15,
+    marginTop: 10,
+    borderRadius: 10,
+    backgroundColor: "#D946EF",
+    alignItems: "center",
   },
-  sendButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+  mainButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
   },
-  suggestionsContainer: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+  switchContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 20,
   },
-  suggestionsTitle: {
-    fontFamily: 'Poppins-Medium',
+  switchText: {
+    color: "#9CA3AF",
     fontSize: 14,
-    color: '#666666',
-    marginBottom: 12,
   },
-  suggestionChip: {
-    backgroundColor: '#F0F0F0',
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-  },
-  suggestionText: {
-    fontFamily: 'Poppins-Medium',
+  switchButtonText: {
+    color: "#D946EF",
     fontSize: 14,
-    color: '#333333',
+    fontWeight: "bold",
   },
 });
+
+
+export default LoginScreen;
